@@ -1,0 +1,585 @@
+//
+//  DVSwitch.m
+//  DVSwitcherExample
+//
+//  Created by Dmitry Volevodz on 08.10.14.
+//  Copyright (c) 2014 Dmitry Volevodz. All rights reserved.
+//
+
+#import "DVSwitchWithIcon.h"
+#import "BEBLabel.h"
+
+static int const bottomSpace = 0;
+@interface DVSwitchWithIcon ()
+
+@property (strong, nonatomic) NSMutableArray *labels;
+@property (strong, nonatomic) NSMutableArray *icons;
+
+@property (strong, nonatomic) NSMutableArray *onTopLabels;
+@property (strong, nonatomic) NSMutableArray *onTopIcons;
+
+@property (strong, nonatomic) NSArray *strings;
+
+@property (strong, nonatomic) void (^handlerBlock)(NSUInteger index);
+@property (strong, nonatomic) void (^willBePressedHandlerBlock)(NSUInteger index);
+
+@property (strong, nonatomic) UIView *backgroundView;
+
+@property (nonatomic) CGFloat originPosX;
+@property (nonatomic) CGFloat oldOriginX;
+
+@end
+
+@implementation DVSwitchWithIcon
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        
+        [NSException raise:@"DVSwitchInitException" format:@"Init call is prohibited, use initWithStringsArray: method"];
+    }
+    
+    return self;
+}
+
++ (instancetype)switchWithStringsArray:(NSArray *)strings
+{
+    // to do
+    return [[DVSwitchWithIcon alloc] initWithStringsArray:strings];
+}
+
+- (instancetype)initWithStringsArray:(NSArray *)strings
+{
+    self = [super init];
+    
+    self.strings = strings;
+    self.cornerRadius = 13;
+    self.sliderOffset = 1.0f;
+    
+    self.backgroundColor = [UIColor colorWithRed:70/255.0 green:70/255.0 blue:70/255.0 alpha:1.0];
+    self.sliderColor = [UIColor whiteColor];
+    self.labelTextColorInsideSlider = [UIColor blackColor];
+    self.labelTextColorOutsideSlider = [UIColor whiteColor];
+    
+    self.backgroundView = [[UIView alloc] init];
+    self.backgroundView.backgroundColor = self.backgroundColor;
+    self.backgroundView.userInteractionEnabled = YES;
+    [self addSubview:self.backgroundView];
+    
+    self.labels = [[NSMutableArray alloc] init];
+    self.icons = [[NSMutableArray alloc] init];
+    
+    for (int k = 0; k < [self.strings count]; k++) {
+        
+        NSString *string = self.strings[k];
+        
+        UIImageView *imageView = [[UIImageView alloc] init];
+        
+        if (k == 0) {
+            
+            // Show the none music icon
+            imageView.image = [UIImage imageNamed:@"icon_music_small_none"];
+        }
+        else {
+            // Show the music icon
+            imageView.image = [UIImage imageNamed:@"icon_music_small"];
+        }
+        
+        imageView.contentMode = UIViewContentModeScaleAspectFit;
+        
+        [self.backgroundView addSubview:imageView];
+        [self.icons addObject:imageView];
+
+        BEBLabel *label = [[BEBLabel alloc] init];
+        label.tag = k;
+        label.text = [NSString stringWithFormat:@"            %@", string];
+        label.font = self.fonts ? self.fonts[k] : self.font;
+        label.adjustsFontSizeToFitWidth = YES;
+//        label.adjustsLetterSpacingToFitWidth = YES;
+        label.textAlignment = NSTextAlignmentLeft;
+        label.textColor = self.labelTextColorOutsideSlider;
+        [self.backgroundView addSubview:label];
+        [self.labels addObject:label];
+        
+        UITapGestureRecognizer *rec = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleRecognizerTap:)];
+        [label addGestureRecognizer:rec];
+        label.userInteractionEnabled = YES;
+    }
+    
+    self.sliderView = [[UIView alloc] init];
+    self.sliderView.backgroundColor = self.sliderColor;
+    self.sliderView.clipsToBounds = YES;
+    [self addSubview:self.sliderView];
+    
+    self.onTopLabels = [[NSMutableArray alloc] init];
+    self.onTopIcons = [[NSMutableArray alloc] init];
+    
+    int idx = 0;
+    for (NSString *string in self.strings) {
+        
+        UIImageView *imageView = [[UIImageView alloc] init];
+        if (idx == 0) {
+            
+            // Show the none music icon
+            imageView.image = [UIImage imageNamed:@"icon_music_small_none"];
+        }
+        else {
+            // Show the music icon
+            imageView.image = [UIImage imageNamed:@"icon_music_small"];
+        }
+        
+        imageView.contentMode = UIViewContentModeScaleAspectFit;
+
+        [self.sliderView addSubview:imageView];
+        [self.onTopIcons addObject:imageView];
+        
+        
+        BEBLabel *label = [[BEBLabel alloc] init];
+        label.text = [NSString stringWithFormat:@"            %@", string];
+        label.font =  self.fonts ? self.fonts[idx] : self.font;
+        label.adjustsFontSizeToFitWidth = YES;
+//        label.adjustsLetterSpacingToFitWidth = YES;
+        label.textAlignment = NSTextAlignmentLeft;
+        label.textColor = self.labelTextColorInsideSlider;
+        [self.sliderView addSubview:label];
+        [self.onTopLabels addObject:label];
+        idx++;
+    }
+    
+    UIPanGestureRecognizer *sliderRec = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(sliderMoved:)];
+    [self.sliderView addGestureRecognizer:sliderRec];
+    
+    return self;
+}
+
+- (instancetype)initWithAttributedStringsArray:(NSArray *)strings {
+    self = [super init];
+    
+    self.strings        = strings;
+    self.cornerRadius   = 12.0f;
+    self.sliderOffset   = 1.0f;
+    
+    self.backgroundColor    = [UIColor colorWithRed:70/255.0 green:70/255.0 blue:70/255.0 alpha:1.0];
+    self.sliderColor        = [UIColor whiteColor];
+    self.labelTextColorInsideSlider     = [UIColor blackColor];
+    self.labelTextColorOutsideSlider    = [UIColor whiteColor];
+    
+    self.backgroundView = [[UIView alloc] init];
+    
+    self.backgroundView.backgroundColor         = self.backgroundColor;
+    self.backgroundView.userInteractionEnabled  = YES;
+    [self addSubview:self.backgroundView];
+    
+    self.labels = [[NSMutableArray alloc] init];
+    
+    [self.strings enumerateObjectsUsingBlock:^(NSMutableAttributedString *str, NSUInteger idx, BOOL *stop) {
+        
+        [str addAttribute:NSForegroundColorAttributeName
+                    value:self.labelTextColorOutsideSlider
+                    range:NSMakeRange(0, str.length)];
+        
+        UILabel *label          = [[UILabel alloc] init];
+        label.tag               = idx;
+        label.attributedText    = str;
+        label.textAlignment     = NSTextAlignmentCenter;
+        
+        [self.backgroundView addSubview:label];
+        [self.labels addObject:label];
+        
+        UITapGestureRecognizer *rec = [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                              action:@selector(handleRecognizerTap:)];
+        [label addGestureRecognizer:rec];
+        label.userInteractionEnabled = YES;
+    }];
+    
+    self.sliderView                 = [[UIView alloc] init];
+    self.sliderView.backgroundColor = self.sliderColor;
+    self.sliderView.clipsToBounds   = YES;
+    [self addSubview:self.sliderView];
+    
+    self.onTopLabels = [[NSMutableArray alloc] init];
+    
+    [self.strings enumerateObjectsUsingBlock:^(NSMutableAttributedString *str, NSUInteger idx, BOOL *stop) {
+        
+        [str addAttribute:NSForegroundColorAttributeName
+                    value:self.labelTextColorInsideSlider
+                    range:NSMakeRange(0, str.length)];
+        
+        UILabel *label          = [[UILabel alloc] init];
+        label.attributedText    = str;
+        label.textAlignment     = NSTextAlignmentCenter;
+       
+        [self.sliderView addSubview:label];
+        [self.onTopLabels addObject:label];
+    }];
+    
+    UIPanGestureRecognizer *sliderRec = [[UIPanGestureRecognizer alloc] initWithTarget:self
+                                                                                action:@selector(sliderMoved:)];
+    [self.sliderView addGestureRecognizer:sliderRec];
+    
+    return self;
+}
+
+- (void)setPressedHandler:(void (^)(NSUInteger))handler
+{
+    self.handlerBlock = handler;
+}
+
+- (void)setWillBePressedHandler:(void (^)(NSUInteger))handler
+{
+    self.willBePressedHandlerBlock = handler;
+}
+
+- (void)forceSelectedIndex:(NSInteger)index animated:(BOOL)animated
+{
+    if (index > [self.strings count]) {
+        return;
+    }
+    
+    self.selectedIndex = index;
+    
+    if (animated) {
+        
+        [self animateChangeToIndex:index callHandler:YES];
+        
+    } else {
+        
+        [self changeToIndexWithoutAnimation:index callHandler:YES];
+    }
+}
+
+- (void)selectIndex:(NSInteger)index animated:(BOOL)animated
+{
+    if (index > [self.strings count]) {
+        return;
+    }
+    
+    self.selectedIndex = index;
+    
+    if (animated) {
+        
+        [self animateChangeToIndex:index callHandler:NO];
+        
+    } else {
+        
+        [self changeToIndexWithoutAnimation:index callHandler:NO];
+    }
+}
+
+- (void)layoutSubviews
+{
+    self.backgroundView.layer.cornerRadius = self.cornerRadius;
+    self.sliderView.layer.cornerRadius = self.cornerRadius - 1;
+    
+    self.backgroundView.backgroundColor = self.backgroundColor;
+    self.sliderView.backgroundColor = self.sliderColor;
+    
+    self.backgroundView.frame = [self convertRect:self.frame fromView:self.superview];
+    
+    self.backgroundView.layer.cornerRadius = self.cornerRadius;
+    self.sliderView.layer.cornerRadius = self.cornerRadius;
+    
+    CGFloat sliderWidth = self.frame.size.width / [self.strings count];
+    
+    self.sliderView.frame = CGRectMake(sliderWidth * self.selectedIndex + self.sliderOffset,
+                                       self.backgroundView.frame.origin.y + self.sliderOffset,
+                                       sliderWidth - self.sliderOffset * 2,
+                                       self.frame.size.height - self.sliderOffset * 2);
+    
+    for (int i = 0; i < [self.labels count]; i++) {
+        
+        UILabel *label = self.labels[i];
+        label.frame = CGRectMake(i * sliderWidth, bottomSpace, sliderWidth, self.frame.size.height - bottomSpace);
+        
+        UIImageView *icon = self.icons[i];
+        icon.frame = CGRectMake(i * sliderWidth, 0, sliderWidth, self.frame.size.height);
+
+        if (self.font) {
+            label.font = self.font;
+        } else if (self.fonts) {
+            label.font = self.fonts[i];
+        }
+        label.textColor = self.labelTextColorOutsideSlider;
+    }
+    
+    for (int j = 0; j < [self.onTopLabels count]; j++) {
+        
+        UILabel *label = self.onTopLabels[j];
+        label.frame = CGRectMake([self.sliderView convertPoint:CGPointMake(j * sliderWidth, 0) fromView:self.backgroundView].x,
+                                 - self.sliderOffset + bottomSpace,
+                                 sliderWidth,
+                                 self.frame.size.height - bottomSpace);
+        if (self.font) {
+            label.font = self.font;
+        } else if (self.fonts) {
+            label.font = self.fonts[j];
+        }
+        label.textColor = self.labelTextColorInsideSlider;
+        
+        UIImageView *icon = self.onTopIcons[j];
+        icon.frame = CGRectMake([self.sliderView convertPoint:CGPointMake(j * sliderWidth, 0) fromView:self.backgroundView].x, - self.sliderOffset, sliderWidth, self.frame.size.height);
+
+    }
+    
+    self.originPosX = sliderWidth * (self.selectedIndex % 5) + self.sliderOffset;
+}
+
+- (void)animateChangeToIndex:(NSUInteger)selectedIndex callHandler:(BOOL)callHandler
+{
+    
+    if (self.willBePressedHandlerBlock) {
+        self.willBePressedHandlerBlock(selectedIndex);
+    }
+    
+    [UIView animateWithDuration:0.25 delay:0.0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+        
+        CGFloat sliderWidth = self.frame.size.width / [self.strings count];
+        self.originPosX = sliderWidth * (self.selectedIndex % 5) + self.sliderOffset;
+        
+        CGRect oldFrame = self.sliderView.frame;
+        CGRect newFrame = CGRectMake(sliderWidth * self.selectedIndex + self.sliderOffset, self.backgroundView.frame.origin.y + self.sliderOffset, sliderWidth - self.sliderOffset * 2, self.frame.size.height - self.sliderOffset * 2);
+        
+        CGRect offRect = CGRectMake(newFrame.origin.x - oldFrame.origin.x, newFrame.origin.y - oldFrame.origin.y, 0, 0);
+        
+        self.sliderView.frame = newFrame;
+        
+        for (UILabel *label in self.onTopLabels) {
+            
+            label.frame = CGRectMake(label.frame.origin.x - offRect.origin.x, label.frame.origin.y - offRect.origin.y, label.frame.size.width, label.frame.size.height);
+        }
+
+        for (UIImageView *imageView in self.onTopIcons) {
+            
+            imageView.frame = CGRectMake(imageView.frame.origin.x - offRect.origin.x,
+                                         imageView.frame.origin.y - offRect.origin.y,
+                                         imageView.frame.size.width,
+                                         imageView.frame.size.height);
+        }
+        
+        self.oldOriginX = newFrame.origin.x;
+        
+    } completion:^(BOOL finished) {
+        
+        if (self.handlerBlock && callHandler) {
+            self.handlerBlock(selectedIndex);
+        }
+    }];
+}
+
+- (void)changeToIndexWithoutAnimation:(NSUInteger)selectedIndex callHandler:(BOOL)callHandler
+{
+    if (self.willBePressedHandlerBlock) {
+        self.willBePressedHandlerBlock(selectedIndex);
+    }
+    
+    CGFloat sliderWidth = self.frame.size.width / [self.strings count];
+    self.originPosX = sliderWidth * (self.selectedIndex % 5) + self.sliderOffset;
+    
+    CGRect oldFrame = self.sliderView.frame;
+    CGRect newFrame = CGRectMake(sliderWidth * self.selectedIndex + self.sliderOffset, self.backgroundView.frame.origin.y + self.sliderOffset, sliderWidth - self.sliderOffset * 2, self.frame.size.height - self.sliderOffset * 2);
+    
+    CGRect offRect = CGRectMake(newFrame.origin.x - oldFrame.origin.x, newFrame.origin.y - oldFrame.origin.y, 0, 0);
+    
+    self.sliderView.frame = newFrame;
+    
+    for (UILabel *label in self.onTopLabels) {
+        
+        label.frame = CGRectMake(label.frame.origin.x - offRect.origin.x, label.frame.origin.y - offRect.origin.y, label.frame.size.width, label.frame.size.height);
+    }
+    
+    for (UIImageView *imageView in self.onTopIcons) {
+        
+        imageView.frame = CGRectMake(imageView.frame.origin.x - offRect.origin.x,
+                                     imageView.frame.origin.y - offRect.origin.y,
+                                     imageView.frame.size.width,
+                                     imageView.frame.size.height);
+    }
+    
+    if (self.handlerBlock && callHandler) {
+        self.handlerBlock(selectedIndex);
+    }
+}
+
+- (void)handleRecognizerTap:(UITapGestureRecognizer *)rec
+{
+    if (self.selectedIndex >= 0) {
+        self.selectedIndex = rec.view.tag;
+        [self animateChangeToIndex:self.selectedIndex callHandler:YES];
+    }
+    else {
+        self.selectedIndex = rec.view.tag;
+        [self changeToIndexWithoutAnimation:self.selectedIndex callHandler:YES];
+    }
+}
+
+- (void)sliderMoved:(UIPanGestureRecognizer *)rec
+{
+    if (rec.state == UIGestureRecognizerStateChanged) {
+        
+        CGRect oldFrame = self.sliderView.frame;
+        
+        CGFloat minPos = 0 + self.sliderOffset;
+        CGFloat maxPos = self.frame.size.width - self.sliderOffset - self.sliderView.frame.size.width;
+        
+        CGPoint center = rec.view.center;
+        CGPoint translation = [rec translationInView:rec.view];
+        
+        center = CGPointMake(center.x + translation.x, center.y);
+        rec.view.center = center;
+        [rec setTranslation:CGPointZero inView:rec.view];
+        
+        if (self.sliderView.frame.origin.x < minPos) {
+            
+            self.sliderView.frame = CGRectMake(minPos, self.sliderView.frame.origin.y, self.sliderView.frame.size.width, self.sliderView.frame.size.height);
+            
+        } else if (self.sliderView.frame.origin.x > maxPos) {
+            
+            self.sliderView.frame = CGRectMake(maxPos, self.sliderView.frame.origin.y, self.sliderView.frame.size.width, self.sliderView.frame.size.height);
+        }
+        else {
+            CGFloat sliderWidth = self.frame.size.width / [self.strings count];
+            CGFloat desiredX = sliderWidth * self.selectedIndex + self.sliderOffset;
+            if (self.sliderView.frame.origin.x > desiredX + (4 - self.selectedIndex % 5) * sliderWidth ||
+                self.sliderView.frame.origin.x < desiredX - (self.selectedIndex % 5) * sliderWidth) {
+                
+                self.sliderView.frame = CGRectMake(self.oldOriginX, self.sliderView.frame.origin.y, self.sliderView.frame.size.width, self.sliderView.frame.size.height);
+            }
+        }
+        
+        CGRect newFrame = self.sliderView.frame;
+        CGRect offRect = CGRectMake(newFrame.origin.x - oldFrame.origin.x, newFrame.origin.y - oldFrame.origin.y, 0, 0);
+        
+        for (UILabel *label in self.onTopLabels) {
+            
+            label.frame = CGRectMake(label.frame.origin.x - offRect.origin.x, label.frame.origin.y - offRect.origin.y, label.frame.size.width, label.frame.size.height);
+        }
+        
+        for (UIImageView *imageView in self.onTopIcons) {
+            
+            imageView.frame = CGRectMake(imageView.frame.origin.x - offRect.origin.x,
+                                         imageView.frame.origin.y - offRect.origin.y,
+                                         imageView.frame.size.width,
+                                         imageView.frame.size.height);
+        }
+        self.oldOriginX = newFrame.origin.x;
+        
+    }
+    else if (rec.state == UIGestureRecognizerStateEnded ||
+             rec.state == UIGestureRecognizerStateCancelled ||
+             rec.state == UIGestureRecognizerStateFailed) {
+        
+        NSMutableArray *distances = [[NSMutableArray alloc] init];
+        CGFloat sliderWidth = self.frame.size.width / [self.strings count];
+        
+        for (int i = 0; i < [self.strings count]; i++) {
+            
+            CGFloat possibleX = i * sliderWidth;
+            CGFloat distance = possibleX - self.sliderView.frame.origin.x;
+            [distances addObject:@(fabs(distance))];
+        }
+        
+        NSNumber *num = [distances valueForKeyPath:@"@min.doubleValue"];
+        NSInteger index = [distances indexOfObject:num];
+        
+        if (self.willBePressedHandlerBlock) {
+            self.willBePressedHandlerBlock(index);
+        }
+        
+        CGFloat desiredX = sliderWidth * index + self.sliderOffset;
+        
+        if (self.sliderView.frame.origin.x != desiredX) {
+            
+            CGRect evenOlderFrame = self.sliderView.frame;
+            
+            CGFloat distance = desiredX - self.sliderView.frame.origin.x;
+            CGFloat time = fabs(distance / 300);
+            
+            [UIView animateWithDuration:time animations:^{
+                
+                self.sliderView.frame = CGRectMake(desiredX, self.sliderView.frame.origin.y, self.sliderView.frame.size.width, self.sliderView.frame.size.height);
+                
+                CGRect newFrame = self.sliderView.frame;
+                
+                CGRect offRect = CGRectMake(newFrame.origin.x - evenOlderFrame.origin.x, newFrame.origin.y - evenOlderFrame.origin.y, 0, 0);
+                
+                for (UILabel *label in self.onTopLabels) {
+                    
+                    label.frame = CGRectMake(label.frame.origin.x - offRect.origin.x, label.frame.origin.y - offRect.origin.y, label.frame.size.width, label.frame.size.height);
+                }
+                
+                for (UIImageView *imageView in self.onTopIcons) {
+                    
+                    imageView.frame = CGRectMake(imageView.frame.origin.x - offRect.origin.x,
+                                                 imageView.frame.origin.y - offRect.origin.y,
+                                                 imageView.frame.size.width,
+                                                 imageView.frame.size.height);
+                }
+                
+                self.oldOriginX = newFrame.origin.x;
+
+                
+            } completion:^(BOOL finished) {
+                
+                self.selectedIndex = index;
+                self.originPosX = sliderWidth * (self.selectedIndex % 5) + self.sliderOffset;
+                
+                if (self.handlerBlock) {
+                    self.handlerBlock(index);
+                }
+                
+            }];
+            
+        } else {
+            
+            self.selectedIndex = index;
+            self.originPosX = sliderWidth * (self.selectedIndex % 5) + self.sliderOffset;
+            
+            if (self.handlerBlock) {
+                self.handlerBlock(self.selectedIndex);
+            }
+        }
+    }
+}
+
+- (void)updateSliderWithTranslate:(CGPoint)translation;
+{
+    CGRect oldFrame = self.sliderView.frame;
+    
+    CGFloat minPos = 0 + self.sliderOffset;
+    CGFloat maxPos = self.frame.size.width - self.sliderOffset - self.sliderView.frame.size.width;
+    
+    CGRect frame = self.sliderView.frame;
+    frame.origin.x = self.originPosX + translation.x;
+    self.sliderView.frame = frame;
+    
+    if (self.sliderView.frame.origin.x < minPos) {
+        
+        self.sliderView.frame = CGRectMake(minPos, self.sliderView.frame.origin.y, self.sliderView.frame.size.width, self.sliderView.frame.size.height);
+        
+    } else if (self.sliderView.frame.origin.x > maxPos) {
+        
+        self.sliderView.frame = CGRectMake(maxPos, self.sliderView.frame.origin.y, self.sliderView.frame.size.width, self.sliderView.frame.size.height);
+    }
+    
+    CGRect newFrame = self.sliderView.frame;
+    CGRect offRect = CGRectMake(newFrame.origin.x - oldFrame.origin.x, newFrame.origin.y - oldFrame.origin.y, 0, 0);
+    
+    for (UILabel *label in self.onTopLabels) {
+        
+        label.frame = CGRectMake(label.frame.origin.x - offRect.origin.x, label.frame.origin.y - offRect.origin.y, label.frame.size.width, label.frame.size.height);
+    }
+    
+    
+    for (UIImageView *imageView in self.onTopIcons) {
+        
+        imageView.frame = CGRectMake(imageView.frame.origin.x - offRect.origin.x,
+                                     imageView.frame.origin.y - offRect.origin.y,
+                                     imageView.frame.size.width,
+                                     imageView.frame.size.height);
+    }
+    self.oldOriginX = newFrame.origin.x;
+}
+
+
+@end

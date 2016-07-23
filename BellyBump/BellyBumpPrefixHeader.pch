@@ -1,0 +1,16 @@
+#ifndef BellyBump_BellyBumpPrefixHeader_pch
+#define BellyBump_BellyBumpPrefixHeader_pch
+
+// Include any system framework and library headers here that should be included in all compilation units.
+// You will also need to set the Prefix Header build setting of one or more of your targets to reference this file.
+
+#import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
+
+#import "BEBMacro.h"
+#import "BEBEnumeration.h"
+#import "BEBConstant.h"
+#import "BEBAppearanceConstants.h"
+#import "BEBConfiguration.h"
+#import "BEBUtilities.h"
+#endif

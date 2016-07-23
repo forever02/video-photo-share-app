@@ -1,0 +1,3 @@
+@interface BEBDividerLine : UIView
+
+@end

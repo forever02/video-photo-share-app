@@ -1,0 +1,3 @@
+@interface BEBMarginLabel : UILabel
+
+@end
